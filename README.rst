@@ -1,7 +1,7 @@
 Magnus tool with image tweaks
 -----------------------------
 
-Fork of `stuartlangridge/magnus`_, but designed to not only zoom on parts of
+Fork of `stuartlangridge/magnus`_, but designed to not only zoom on parts of the
 screen, but also map color ranges to make them more distinctive within specific
 small input range.
 
@@ -13,9 +13,9 @@ process image pixels quickly.
 
 How to prepare/build and use::
 
-  % gcc -O2 -fpic --shared \
-    $(python3-config --includes) \
-    magnus_pixbuf_proc.c -o magnus_pixbuf_proc.so
+  % gcc -O2 -fpic --shared $(python3-config --includes) \
+      magnus_pixbuf_proc.c -o magnus_pixbuf_proc.so
+
   % ./magnus
 
 Requirements (Arch): python python-gobject
