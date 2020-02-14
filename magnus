@@ -18,14 +18,15 @@ except ImportError: setproctitle = None
 import magnus_pixbuf_proc as mpp
 
 
-class Main:
+p_err = ft.partial(print, file=sys.stderr, flush=True)
+
+class Magnus:
 
 	def __init__(self, refresh_interval):
 		self.zoomlevel = 2
 		self.app = Gtk.Application.new('org.jncDdHBql.K9LwUiqXJ.magnus', 0)
 		self.resize_timeout = None
 		self.window_metrics = None
-		self.window_metrics_restored = False
 		self.decorations_height = 0
 		self.decorations_width = 0
 		self.last_x = -1
@@ -64,11 +65,13 @@ class Main:
 		zoom.connect('changed', self.set_zoom)
 		head.pack_end(zoom)
 
-		# the box that contains everything
-		self.img = Gtk.Image()
-		scrolled_window = Gtk.ScrolledWindow()
-		scrolled_window.add(self.img)
-		self.w.add(scrolled_window)
+		# whole window is cairo drawing surface
+		self.img = None
+		self.da = Gtk.DrawingArea()
+		self.da.set_hexpand(True)
+		self.da.set_vexpand(True)
+		self.da.connect('draw', self.draw)
+		self.w.add(self.da)
 
 		# bind the zoom keyboard shortcuts
 		if Keybinder:
@@ -78,19 +81,17 @@ class Main:
 				Keybinder.bind('<Alt><Super>equal', self.zoom_in, zoom)
 				Keybinder.bind('<Alt><Super>minus', self.zoom_out, zoom)
 
-		# and, go
-		self.w.show_all()
-
+		# updates
 		self.width = 0
 		self.height = 0
 		self.window_x = 0
 		self.window_y = 0
 		GLib.timeout_add(250, self.read_window_size)
+		GLib.timeout_add(self.refresh_interval, self.update)
 
-		# and, poll
-		GLib.timeout_add(self.refresh_interval, self.poll)
-
-		GLib.idle_add(self.load_config)
+		# resize and present window
+		self.load_config()
+		self.w.show_all()
 
 
 	def zoom_out(self, keypress, zoom):
@@ -115,7 +116,7 @@ class Main:
 
 	def set_zoom(self, zoom):
 		self.zoomlevel = int(zoom.get_active_text()[0])
-		self.poll(force_refresh=True)
+		self.update(force_refresh=True)
 		self.serialise()
 
 	def read_window_size(self, *args):
@@ -163,7 +164,7 @@ class Main:
 			width, height, width * len(light))
 
 
-	def poll(self, force_refresh=False):
+	def update(self, force_refresh=False):
 		display = Gdk.Display.get_default()
 		(screen, x, y, modifier) = display.get_pointer()
 		if x == self.last_x and y == self.last_y:
@@ -176,8 +177,8 @@ class Main:
 				y > self.window_y and
 				y <= (self.window_y + self.height + self.decorations_height)):
 			# pointer is over our window, so make it an empty pixbuf
-			white = self.get_white_pixbuf(self.width, self.height)
-			self.img.set_from_pixbuf(white)
+			self.img = Gdk.cairo_surface_create_from_pixbuf(
+				self.get_white_pixbuf(self.width, self.height), 0, None )
 		else:
 			root = Gdk.get_default_root_window()
 			scaled_width = self.width // self.zoomlevel
@@ -198,16 +199,24 @@ class Main:
 				mpp.apply_curves(w, h, buff)
 				screenshot = GdkPixbuf.Pixbuf.new_from_data(buff, cs, False, 8, w, h, rs)
 
-			scaled_pb = screenshot.scale_simple(
-				self.width, self.height,
-				GdkPixbuf.InterpType.NEAREST)
-			self.img.set_from_pixbuf(scaled_pb)
+			screenshot = screenshot.scale_simple(
+				self.width, self.height, GdkPixbuf.InterpType.NEAREST )
+			self.img = Gdk.cairo_surface_create_from_pixbuf(screenshot, 0, None)
+		self.da.queue_draw()
 		return True
+
+	def draw(self, da, ctx):
+		w = da.get_allocation()
+		w, h = w.width, w.height
+		Gtk.render_background(da.get_style_context(), ctx, 0, 0, w, h)
+		if not self.img: return
+		ctx.set_source_surface(self.img, 0, 0)
+		ctx.paint()
 
 
 	def window_configure(self, window, ev):
 		self.read_window_size()
-		if not self.window_metrics_restored: return False
+		if ev.type != Gdk.EventType.CONFIGURE: return
 		if self.resize_timeout: GLib.source_remove(self.resize_timeout)
 		self.resize_timeout = GLib.timeout_add_seconds(
 			1, self.save_window_metrics_after_timeout,
@@ -239,8 +248,8 @@ class Main:
 		scr = self.w.get_screen()
 		sw = float(scr.get_width())
 		sh = float(scr.get_height())
-		self.w.set_size_request(
-			int(sw * metrics['ww']), int(sh * metrics['wh']))
+		self.w.set_default_size(
+			int(sw * metrics['ww']), int(sh * metrics['wh']) )
 		self.w.move(int(sw * metrics['wx']), int(sh * metrics['wy']))
 
 	def serialise(self, *args, **kwargs):
@@ -251,8 +260,8 @@ class Main:
 	def load_config(self):
 		data = dict()
 		try: data = json.loads(self.cache_file.read_text())
-		except OSError as e: print(f'ERROR: failed to restore settings - {e}')
-		except ValueError as e: print(f'WARNING: discarding invalid json settings-file - {e}')
+		except OSError as e: p_err(f'ERROR: failed to restore settings - {e}')
+		except ValueError as e: p_err(f'WARNING: discarding invalid json settings-file - {e}')
 		zl = data.get('zoom')
 		if zl:
 			idx = 0
@@ -264,7 +273,6 @@ class Main:
 				idx += 1
 		metrics = data.get('metrics')
 		if metrics: self.restore_window_metrics(metrics)
-		self.window_metrics_restored = True
 
 
 def main(args=None):
@@ -275,9 +283,7 @@ def main(args=None):
 		type=int, metavar='ms', default=250,
 		help='Refresh interval in milliseconds (lower is faster). Default: %(default)s')
 	opts = parser.parse_args(sys.argv[1:] if args is None else args)
-
-	m = Main(opts.refresh_interval)
-	m.app.run()
+	Magnus(opts.refresh_interval).app.run()
 
 if __name__ == '__main__':
 	warnings.filterwarnings('ignore', category=DeprecationWarning)
