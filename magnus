@@ -188,22 +188,24 @@ class Magnus:
 			screenshot = Gdk.pixbuf_get_from_window(
 				root, x - scaled_xoff,
 				y - scaled_yoff, scaled_width, scaled_height)
-			if not screenshot: return True
-
-			cs = screenshot.get_property('colorspace')
-			if cs != GdkPixbuf.Colorspace.RGB:
-				warnings.warn(f'Disabling color tweaks - unsupported colorspace: {cs}')
-			else:
-				w, h = screenshot.get_width(), screenshot.get_height()
-				rs, buff = screenshot.get_rowstride(), screenshot.get_pixels()
-				mpp.apply_curves(w, h, buff)
-				screenshot = GdkPixbuf.Pixbuf.new_from_data(buff, cs, False, 8, w, h, rs)
-
-			screenshot = screenshot.scale_simple(
-				self.width, self.height, GdkPixbuf.InterpType.NEAREST )
-			self.img = Gdk.cairo_surface_create_from_pixbuf(screenshot, 0, None)
+			if screenshot:
+				screenshot = self.tweak_colors(screenshot)
+				screenshot = screenshot.scale_simple(
+					self.width, self.height, GdkPixbuf.InterpType.NEAREST )
+				self.img = Gdk.cairo_surface_create_from_pixbuf(screenshot, 0, None)
 		self.da.queue_draw()
 		return True
+
+	def tweak_colors(self, screenshot):
+		cs = screenshot.get_property('colorspace')
+		if cs != GdkPixbuf.Colorspace.RGB:
+			warnings.warn(f'Disabling color tweaks - unsupported colorspace: {cs}')
+		else:
+			w, h = screenshot.get_width(), screenshot.get_height()
+			rs, buff = screenshot.get_rowstride(), screenshot.get_pixels()
+			mpp.apply_curves(w, h, buff)
+			screenshot = GdkPixbuf.Pixbuf.new_from_data(buff, cs, False, 8, w, h, rs)
+		return screenshot
 
 	def draw(self, da, ctx):
 		w = da.get_allocation()
