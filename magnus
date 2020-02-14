@@ -8,13 +8,14 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('Keybinder', '3.0')
 from gi.repository import Gtk, Gdk, GLib, GdkPixbuf, Gio
 
-try: from gi.repository import Keybinder
+try: from gi.repository import Keybinder # libkeybinder3
 except ImportError: Keybinder = None
+
+try: import setproctitle # pip3 install --user proctitle
+except ImportError: setproctitle = None
 
 # Be sure to compile it with gcc first
 import magnus_pixbuf_proc as mpp
-
-__VERSION__ = '1.0.3'
 
 
 class Main:
@@ -167,8 +168,7 @@ class Main:
 		(screen, x, y, modifier) = display.get_pointer()
 		if x == self.last_x and y == self.last_y:
 			# bail if nothing would be different
-			if not force_refresh:
-				return True
+			if not force_refresh: return True
 		self.last_x = x
 		self.last_y = y
 		if (x > self.window_x and
@@ -191,14 +191,12 @@ class Main:
 
 			cs = screenshot.get_property('colorspace')
 			if cs != GdkPixbuf.Colorspace.RGB:
-				warnings.warn( 'Skipping color tweaks'
-					f' due to unsupported colorspace: {cs}' )
+				warnings.warn(f'Disabling color tweaks - unsupported colorspace: {cs}')
 			else:
 				w, h = screenshot.get_width(), screenshot.get_height()
 				rs, buff = screenshot.get_rowstride(), screenshot.get_pixels()
 				mpp.apply_curves(w, h, buff)
-				screenshot = GdkPixbuf.Pixbuf.new_from_data(
-					buff, cs, False, 8, w, h, rs )
+				screenshot = GdkPixbuf.Pixbuf.new_from_data(buff, cs, False, 8, w, h, rs)
 
 			scaled_pb = screenshot.scale_simple(
 				self.width, self.height,
@@ -279,9 +277,10 @@ def main(args=None):
 	opts = parser.parse_args(sys.argv[1:] if args is None else args)
 
 	m = Main(opts.refresh_interval)
-	m.app.run(sys.argv)
+	m.app.run()
 
 if __name__ == '__main__':
 	warnings.filterwarnings('ignore', category=DeprecationWarning)
-	signal.signal(signal.SIGINT, signal.SIG_DFL)
+	signal.signal(signal.SIGINT, signal.SIG_DFL) # allow gtk to handle this (die quietly)
+	if setproctitle: setproctitle.setproctitle('magnus')
 	sys.exit(main())

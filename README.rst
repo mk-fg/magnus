@@ -1,12 +1,13 @@
 Magnus tool with image tweaks
 -----------------------------
 
-Fork of `stuartlangridge/magnus`_, but designed to not only zoom on parts of the
-screen, but also map color ranges to make them more distinctive within specific
-small input range.
+Fork of `stuartlangridge/magnus`_ tool, tweaked to not only zoom on parts of the
+screen, but also remap output color ranges to make them more distinctive from
+within specific small input range.
 
-Use-case is editing a GTK+ Theme, where I can't tell colors of most elements
-apart, looking through my colorblind eyes onto my old crappy el-cheapo display.
+Use-case is visual aid for editing small GTK+ Theme elements, where I can't tell
+colors of most pixels apart, looking through colorblind eyes at old crappy
+el-cheapo display, and them being already very close to begin with.
 
 Consists of slightly modified original magnus script and tiny C module to
 process image pixels quickly.
@@ -16,8 +17,16 @@ How to prepare/build and use::
   % gcc -O2 -fpic --shared $(python3-config --includes) \
       magnus_pixbuf_proc.c -o magnus_pixbuf_proc.so
 
+  % ./magnus --help
+  ...
+
   % ./magnus
 
-Requirements (Arch): python python-gobject
+Dependencies (Arch):
+
+- python
+- python-gobject
+- (optional) libkeybinder3 - for Win-Alt-<plus/minus> zoom keys
+- (optional) python-setproctitle - "magnus" in ps output instead of "python ..." line
 
 .. _stuartlangridge/magnus: https://github.com/stuartlangridge/magnus/

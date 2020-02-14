@@ -6,7 +6,9 @@
 // Build with:
 //  gcc -O2 -fpic --shared $(python3-config --includes) \
 //    magnus_pixbuf_proc.c -o magnus_pixbuf_proc.so
-// Usage: import magnus_pixbuf_proc as mp; mpp.apply_curves(w, h, buff)
+// Usage:
+//  import magnus_pixbuf_proc as mpp
+//  mpp.apply_curves(w, h, buff)
 //
 // How to update: use Color Levels/Curves tools in GIMP
 //  on a screenshot to pick right parameters, look at gimpoperation*.c
