@@ -25,15 +25,11 @@ class Magnus:
 	def __init__(self, refresh_interval):
 		self.zoomlevel = 2
 		self.app = Gtk.Application.new('org.jncDdHBql.K9LwUiqXJ.magnus', 0)
-		self.resize_timeout = None
-		self.window_metrics = None
 		self.decorations_height = 0
 		self.decorations_width = 0
 		self.last_x = -1
 		self.last_y = -1
 		self.refresh_interval = refresh_interval
-		self.started_by_keypress = False
-		self.cache_file = pl.Path(GLib.get_user_cache_dir()) / 'magnus.json'
 		self.app.connect('activate', self.app_init)
 
 	def app_init(self, app):
@@ -90,7 +86,6 @@ class Magnus:
 		GLib.timeout_add(self.refresh_interval, self.update)
 
 		# resize and present window
-		self.load_config()
 		self.w.show_all()
 
 
@@ -123,6 +118,12 @@ class Magnus:
 		loc = self.w.get_size()
 		self.width = loc.width
 		self.height = loc.height
+
+	def window_configure(self, window, ev):
+		self.read_window_size()
+		if ev.type != Gdk.EventType.CONFIGURE: return
+		self.window_x = ev.x
+		self.window_y = ev.y
 
 
 	@ft.lru_cache()
@@ -214,67 +215,6 @@ class Magnus:
 		if not self.img: return
 		ctx.set_source_surface(self.img, 0, 0)
 		ctx.paint()
-
-
-	def window_configure(self, window, ev):
-		self.read_window_size()
-		if ev.type != Gdk.EventType.CONFIGURE: return
-		if self.resize_timeout: GLib.source_remove(self.resize_timeout)
-		self.resize_timeout = GLib.timeout_add_seconds(
-			1, self.save_window_metrics_after_timeout,
-			{'x': ev.x, 'y': ev.y, 'w': ev.width, 'h': ev.height} )
-		self.window_x = ev.x
-		self.window_y = ev.y
-
-
-	def save_window_metrics_after_timeout(self, props):
-		GLib.source_remove(self.resize_timeout)
-		self.resize_timeout = None
-		self.save_window_metrics(props)
-
-	def save_window_metrics(self, props):
-		scr = self.w.get_screen()
-		sw = float(scr.get_width())
-		sh = float(scr.get_height())
-		# We save window dimensions as fractions of the screen dimensions,
-		# to cope with screen resolution changes while we weren't running
-		self.window_metrics = {
-			'ww': props['w'] / sw,
-			'wh': props['h'] / sh,
-			'wx': props['x'] / sw,
-			'wy': props['y'] / sh
-		}
-		self.serialise()
-
-	def restore_window_metrics(self, metrics):
-		scr = self.w.get_screen()
-		sw = float(scr.get_width())
-		sh = float(scr.get_height())
-		self.w.set_default_size(
-			int(sw * metrics['ww']), int(sh * metrics['wh']) )
-		self.w.move(int(sw * metrics['wx']), int(sh * metrics['wy']))
-
-	def serialise(self, *args, **kwargs):
-		data = dict(zoom=self.zoomlevel)
-		if self.window_metrics: data['metrics'] = self.window_metrics
-		self.cache_file.write_text(json.dumps(data, indent=2))
-
-	def load_config(self):
-		data = dict()
-		try: data = json.loads(self.cache_file.read_text())
-		except OSError as e: p_err(f'ERROR: failed to restore settings - {e}')
-		except ValueError as e: p_err(f'WARNING: discarding invalid json settings-file - {e}')
-		zl = data.get('zoom')
-		if zl:
-			idx = 0
-			for row in self.zoom.get_model():
-				text, lid = list(row)
-				if lid == str(zl):
-					self.zoom.set_active(idx)
-					self.zoomlevel = zl
-				idx += 1
-		metrics = data.get('metrics')
-		if metrics: self.restore_window_metrics(metrics)
 
 
 def main(args=None):

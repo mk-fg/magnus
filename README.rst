@@ -1,9 +1,9 @@
-Magnus tool with image tweaks
+Magnus tool with color tweaks
 -----------------------------
 
-Fork of `stuartlangridge/magnus`_ tool, tweaked to not only zoom on parts of the
-screen, but also remap output color ranges to make them more distinctive from
-within specific small input range.
+Stripped-down fork of `stuartlangridge/magnus`_ tool, tweaked to not only zoom
+on parts of the screen, but also remap output color ranges to make them more
+distinctive from within specific small input range.
 
 Use-case is visual aid for editing small GTK+ Theme elements, where I can't tell
 colors of most pixels apart, looking through colorblind eyes at old crappy
