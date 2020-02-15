@@ -126,45 +126,6 @@ class Magnus:
 		self.window_y = ev.y
 
 
-	@ft.lru_cache()
-	def makesquares(self,
-			overall_width, overall_height, square_size, value_on, value_off):
-		on_sq = list(value_on) * square_size
-		off_sq = list(value_off) * square_size
-		on_row = []
-		off_row = []
-		while len(on_row) < overall_width * len(value_on):
-			on_row += on_sq
-			on_row += off_sq
-			off_row += off_sq
-			off_row += on_sq
-		on_row = on_row[:overall_width * len(value_on)]
-		off_row = off_row[:overall_width * len(value_on)]
-
-		on_sq_row = on_row * square_size
-		off_sq_row = off_row * square_size
-
-		overall = []
-		count = 0
-		while len(overall) < overall_width * overall_height * len(value_on):
-			overall += on_sq_row
-			overall += off_sq_row
-			count += 2
-		overall = overall[:overall_width * overall_height * len(value_on)]
-		return overall
-
-	@ft.lru_cache()
-	def get_white_pixbuf(self, width, height):
-		square_size = 16
-		light = (153, 153, 153, 255)
-		dark = (102, 102, 102, 255)
-		whole = self.makesquares(width, height, square_size, light, dark)
-		arr = GLib.Bytes.new(whole)
-		return GdkPixbuf.Pixbuf.new_from_bytes(
-			arr, GdkPixbuf.Colorspace.RGB, True, 8,
-			width, height, width * len(light))
-
-
 	def update(self, force_refresh=False):
 		display = Gdk.Display.get_default()
 		(screen, x, y, modifier) = display.get_pointer()
@@ -178,8 +139,7 @@ class Magnus:
 				y > self.window_y and
 				y <= (self.window_y + self.height + self.decorations_height)):
 			# pointer is over our window, so make it an empty pixbuf
-			self.img = Gdk.cairo_surface_create_from_pixbuf(
-				self.get_white_pixbuf(self.width, self.height), 0, None )
+			self.img = None
 		else:
 			root = Gdk.get_default_root_window()
 			scaled_width = self.width // self.zoomlevel
