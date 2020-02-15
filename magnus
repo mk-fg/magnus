@@ -26,7 +26,7 @@ class adict(dict):
 		self.__dict__ = self
 
 
-class Magnus:
+class MagnusCC:
 
 	def __init__(self, zoom, refresh_interval):
 		self.zoom_k = zoom
@@ -35,12 +35,13 @@ class Magnus:
 		self.app.connect('activate', self.app_init)
 
 	def app_init(self, app):
-		GLib.set_application_name('Magnus')
+		name = 'Magnus-CC'
+		GLib.set_application_name(name)
 
 		# the window
 		self.w = Gtk.ApplicationWindow.new(self.app)
 		self.w.set_default_size(600, 400)
-		self.w.set_title('Magnus')
+		self.w.set_title(name)
 		self.w.connect('destroy', lambda a: self.app.quit())
 		self.w.connect('configure-event', self.window_configure)
 		self.w.connect('window-state-event', self.window_configure)
@@ -51,7 +52,7 @@ class Magnus:
 		# the headerbar
 		head = Gtk.HeaderBar()
 		head.set_show_close_button(True)
-		head.props.title = 'Magnus'
+		head.props.title = name
 		self.w.set_titlebar(head)
 
 		# the zoom chooser
@@ -165,7 +166,7 @@ def main(args=None):
 		type=int, metavar='ms', default=250,
 		help='Refresh interval in milliseconds (lower is faster). Default: %(default)s')
 	opts = parser.parse_args(sys.argv[1:] if args is None else args)
-	Magnus(opts.initial_zoom, opts.refresh_interval).app.run()
+	MagnusCC(opts.initial_zoom, opts.refresh_interval).app.run()
 
 if __name__ == '__main__':
 	warnings.filterwarnings('ignore', category=DeprecationWarning)
