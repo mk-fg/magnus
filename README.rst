@@ -2,8 +2,8 @@ Magnus tool with color tweaks
 -----------------------------
 
 Stripped-down fork of `stuartlangridge/magnus`_ tool, tweaked to not only zoom
-on parts of the screen, but also remap output colors to make them more
-distinctive within specific small input range (think GIMP Color Levels/Curves).
+on part of the screen under pointer, but also remap output colors to make them
+more distinctive within specific small input range (think GIMP Color Levels/Curves).
 
 Use-case is visual aid for editing small GTK+ Theme elements, where I can't tell
 colors of most pixels apart, looking through colorblind eyes at old crappy

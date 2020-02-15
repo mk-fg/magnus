@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
-import pathlib as pl, functools as ft
-import os, sys, codecs, json, signal, warnings
+import os, sys, warnings, pathlib as pl
 
 try: import setproctitle # pip3 install --user proctitle
 except ImportError: setproctitle = None
@@ -18,8 +17,6 @@ from gi.repository import Gtk, Gdk, GLib, GdkPixbuf
 import magnus_pixbuf_proc as mpp
 
 
-p_err = ft.partial(print, file=sys.stderr, flush=True)
-
 class adict(dict):
 	def __init__(self, *args, **kwargs):
 		super().__init__(*args, **kwargs)
@@ -35,24 +32,21 @@ class MagnusCC:
 		self.app.connect('activate', self.app_init)
 
 	def app_init(self, app):
-		name = 'Magnus-CC'
-		GLib.set_application_name(name)
+		app_name = 'Magnus-CC'
+		GLib.set_application_name(app_name)
 
 		# the window
 		self.w = Gtk.ApplicationWindow.new(self.app)
 		self.w.set_default_size(600, 400)
-		self.w.set_title(name)
+		self.w.set_title(app_name)
 		self.w.connect('destroy', lambda a: self.app.quit())
 		self.w.connect('configure-event', self.window_configure)
 		self.w.connect('window-state-event', self.window_configure)
-		self.w.connect('size-allocate', self.read_window_decorations_size)
-		devman = self.w.get_screen().get_display().get_device_manager()
-		self.pointer = devman.get_client_pointer()
 
 		# the headerbar
 		head = Gtk.HeaderBar()
 		head.set_show_close_button(True)
-		head.props.title = name
+		head.props.title = app_name
 		self.w.set_titlebar(head)
 
 		# the zoom chooser
@@ -83,7 +77,7 @@ class MagnusCC:
 		# updates
 		self.last_pos = None
 		self.w_sz = adict(width=0, height=0)
-		self.w_pos, self.w_dec = adict(x=0, y=0), adict(w=0, h=0)
+		self.w_pos = adict(x=0, y=0)
 		GLib.timeout_add(250, self.read_window_size)
 		GLib.timeout_add(self.refresh_interval, self.update)
 
@@ -103,10 +97,6 @@ class MagnusCC:
 		if current_index == size - 1: return
 		zoom.set_active(current_index + 1)
 		self.set_zoom(zoom)
-
-	def read_window_decorations_size(self, win, alloc):
-		sz = self.w.get_size()
-		self.w_dec.update(w=alloc.width - sz.width, h=alloc.height - sz.height)
 
 	def set_zoom(self, zoom):
 		self.zoom_k = int(zoom.get_active_text()[0])
@@ -169,7 +159,8 @@ def main(args=None):
 	MagnusCC(opts.initial_zoom, opts.refresh_interval).app.run()
 
 if __name__ == '__main__':
-	warnings.filterwarnings('ignore', category=DeprecationWarning)
+	import signal
 	signal.signal(signal.SIGINT, signal.SIG_DFL) # allow gtk to handle this (die quietly)
 	if setproctitle: setproctitle.setproctitle('magnus')
+	warnings.filterwarnings('ignore', category=DeprecationWarning)
 	sys.exit(main())
