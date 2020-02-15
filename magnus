@@ -3,16 +3,16 @@
 import pathlib as pl, functools as ft
 import os, sys, codecs, json, signal, warnings
 
-import gi
-gi.require_version('Gtk', '3.0')
-gi.require_version('Keybinder', '3.0')
-from gi.repository import Gtk, Gdk, GLib, GdkPixbuf
-
-try: from gi.repository import Keybinder # libkeybinder3
-except ImportError: Keybinder = None
-
 try: import setproctitle # pip3 install --user proctitle
 except ImportError: setproctitle = None
+
+import gi
+gi.require_version('Gtk', '3.0')
+try:
+	gi.require_version('Keybinder', '3.0')
+	from gi.repository import Keybinder # libkeybinder3
+except: Keybinder = None
+from gi.repository import Gtk, Gdk, GLib, GdkPixbuf
 
 # Be sure to compile it with gcc first
 import magnus_pixbuf_proc as mpp
@@ -131,7 +131,7 @@ class Magnus:
 		if screenshot:
 			self.img = self.tweak_colors(screenshot).scale_simple(
 				self.w_sz.width, self.w_sz.height, GdkPixbuf.InterpType.NEAREST )
-		self.da.queue_draw()
+			self.da.queue_draw()
 		return True
 
 	def tweak_colors(self, screenshot):
@@ -146,12 +146,12 @@ class Magnus:
 		return screenshot
 
 	def draw(self, da, ctx):
-		w = da.get_allocation()
-		w, h = w.width, w.height
-		Gtk.render_background(da.get_style_context(), ctx, 0, 0, w, h)
-		if not self.img: return
-		Gdk.cairo_set_source_pixbuf(ctx, self.img, 0, 0)
-		ctx.paint()
+		da_sz = da.get_allocation()
+		if not self.img:
+			Gtk.render_background(da.get_style_context(), ctx, 0, 0, da_sz.width, da_sz.height)
+		else:
+			Gdk.cairo_set_source_pixbuf(ctx, self.img, 0, 0)
+			ctx.paint()
 
 
 def main(args=None):
