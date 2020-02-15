@@ -28,6 +28,7 @@ class MagnusCC:
 	def __init__(self, zoom, refresh_interval):
 		self.zoom_k = zoom
 		self.refresh_interval = refresh_interval
+		self.color_tweaks = True
 		self.app = Gtk.Application.new('org.jncDdHBql.K9LwUiqXJ.magnus', 0)
 		self.app.connect('activate', self.app_init)
 
@@ -73,6 +74,7 @@ class MagnusCC:
 				Keybinder.bind('<Alt><Super>plus', self.zoom_in, zoom)
 				Keybinder.bind('<Alt><Super>equal', self.zoom_in, zoom)
 				Keybinder.bind('<Alt><Super>minus', self.zoom_out, zoom)
+				Keybinder.bind('<Alt><Super>c', self.toggle_color_tweaks)
 
 		# updates
 		self.last_pos = None
@@ -102,6 +104,10 @@ class MagnusCC:
 		self.zoom_k = int(zoom.get_active_text()[0])
 		self.update(force_refresh=True)
 
+	def toggle_color_tweaks(self, keypress):
+		self.color_tweaks = not self.color_tweaks
+		self.update(force_refresh=True)
+
 	def read_window_size(self, *args):
 		self.w_sz = self.w.get_size()
 
@@ -119,9 +125,9 @@ class MagnusCC:
 		wx, hx = self.w_sz.width // self.zoom_k, self.w_sz.height // self.zoom_k
 		screenshot = Gdk.pixbuf_get_from_window(root, x - wx // 2, y - hx // 2, wx, hx)
 		if screenshot:
-			w, h = wx * self.zoom_k, hx * self.zoom_k
-			self.img = self.tweak_colors(screenshot)\
-				.scale_simple(w, h, GdkPixbuf.InterpType.NEAREST)
+			if self.color_tweaks: screenshot = self.tweak_colors(screenshot)
+			self.img = screenshot.scale_simple(
+				wx * self.zoom_k, hx * self.zoom_k, GdkPixbuf.InterpType.NEAREST)
 			self.da.queue_draw()
 		return True
 

@@ -5,6 +5,8 @@ Stripped-down fork of `stuartlangridge/magnus`_ tool, tweaked to not only zoom
 on part of the screen under pointer, but also remap output colors to make them
 more distinctive within specific small input range (think GIMP Color Levels/Curves).
 
+.. _stuartlangridge/magnus: https://github.com/stuartlangridge/magnus/
+
 Use-case is visual aid for editing small GTK+ Theme elements, where I can't tell
 colors of most pixels apart, looking through colorblind eyes at old crappy
 el-cheapo display, and them being already very close there to begin with.
@@ -26,7 +28,11 @@ Dependencies (Arch):
 
 - python
 - python-gobject
-- (optional) libkeybinder3 - for Win-Alt-<plus/minus> zoom keys
+- (optional) libkeybinder3 - for Win-Alt-<plus/minus> zoom keys and such
 - (optional) python-setproctitle - "magnus" in ps output instead of "python ..." line
 
-.. _stuartlangridge/magnus: https://github.com/stuartlangridge/magnus/
+Global key bindings:
+
+- Win-Alt-<plus/equal>: increase zoom level +1
+- Win-Alt-<minus>: decrease zoom level -1
+- Win-Alt-c: cycle color tweaks mode(s)
