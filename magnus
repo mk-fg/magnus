@@ -125,22 +125,12 @@ class Magnus:
 		screen, x, y, modifier = Gdk.Display.get_default().get_pointer()
 		if not force_refresh and self.last_pos == (x, y): return True # no changes
 		self.last_pos = x, y
-
-		if (x > self.w_pos.x and
-				x <= (self.w_pos.x + self.w_sz.width + self.w_dec.w) and
-				y > self.w_pos.y and
-				y <= (self.w_pos.y + self.w_sz.height + self.w_dec.h)):
-			# pointer is over our window, so make it an empty pixbuf
-			self.img = None
-
-		else:
-			root = Gdk.get_default_root_window()
-			wx, hx = self.w_sz.width // self.zoom_k, self.w_sz.height // self.zoom_k
-			screenshot = Gdk.pixbuf_get_from_window(root, x - wx // 2, y - hx // 2, wx, hx)
-			if screenshot:
-				self.img = self.tweak_colors(screenshot).scale_simple(
-					self.w_sz.width, self.w_sz.height, GdkPixbuf.InterpType.NEAREST )
-
+		root = Gdk.get_default_root_window()
+		wx, hx = self.w_sz.width // self.zoom_k, self.w_sz.height // self.zoom_k
+		screenshot = Gdk.pixbuf_get_from_window(root, x - wx // 2, y - hx // 2, wx, hx)
+		if screenshot:
+			self.img = self.tweak_colors(screenshot).scale_simple(
+				self.w_sz.width, self.w_sz.height, GdkPixbuf.InterpType.NEAREST )
 		self.da.queue_draw()
 		return True
 
