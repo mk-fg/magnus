@@ -29,11 +29,9 @@ class adict(dict):
 class Magnus:
 
 	def __init__(self, zoom, refresh_interval):
-		self.zoomlevel = zoom
-		self.app = Gtk.Application.new('org.jncDdHBql.K9LwUiqXJ.magnus', 0)
-		self.decorations_width = self.decorations_height = 0
-		self.last_x = self.last_y = -1
+		self.zoom_k = zoom
 		self.refresh_interval = refresh_interval
+		self.app = Gtk.Application.new('org.jncDdHBql.K9LwUiqXJ.magnus', 0)
 		self.app.connect('activate', self.app_init)
 
 	def app_init(self, app):
@@ -41,7 +39,7 @@ class Magnus:
 
 		# the window
 		self.w = Gtk.ApplicationWindow.new(self.app)
-		self.w.set_size_request(300, 300)
+		self.w.set_default_size(600, 400)
 		self.w.set_title('Magnus')
 		self.w.connect('destroy', lambda a: self.app.quit())
 		self.w.connect('configure-event', self.window_configure)
@@ -61,7 +59,7 @@ class Magnus:
 		self.zoom = zoom
 		for n, x in enumerate(range(2, 6)):
 			zoom.append(str(x), f'{x}×')
-			if not n or x == self.zoomlevel: zoom.set_active(n)
+			if not n or x == self.zoom_k: zoom.set_active(n)
 		zoom.connect('changed', self.set_zoom)
 		head.pack_end(zoom)
 
@@ -82,8 +80,9 @@ class Magnus:
 				Keybinder.bind('<Alt><Super>minus', self.zoom_out, zoom)
 
 		# updates
+		self.last_pos = None
 		self.w_sz = adict(width=0, height=0)
-		self.w_pos = adict(x=0, y=0)
+		self.w_pos, self.w_dec = adict(x=0, y=0), adict(w=0, h=0)
 		GLib.timeout_add(250, self.read_window_size)
 		GLib.timeout_add(self.refresh_interval, self.update)
 
@@ -106,11 +105,10 @@ class Magnus:
 
 	def read_window_decorations_size(self, win, alloc):
 		sz = self.w.get_size()
-		self.decorations_width = alloc.width - sz.width
-		self.decorations_height = alloc.height - sz.height
+		self.w_dec.update(w=alloc.width - sz.width, h=alloc.height - sz.height)
 
 	def set_zoom(self, zoom):
-		self.zoomlevel = int(zoom.get_active_text()[0])
+		self.zoom_k = int(zoom.get_active_text()[0])
 		self.update(force_refresh=True)
 		self.serialise()
 
@@ -124,32 +122,25 @@ class Magnus:
 
 
 	def update(self, force_refresh=False):
-		display = Gdk.Display.get_default()
-		screen, x, y, modifier = display.get_pointer()
-		if x == self.last_x and y == self.last_y:
-			# bail if nothing would be different
-			if not force_refresh: return True
-		self.last_x, self.last_y = x, y
+		screen, x, y, modifier = Gdk.Display.get_default().get_pointer()
+		if not force_refresh and self.last_pos == (x, y): return True # no changes
+		self.last_pos = x, y
+
 		if (x > self.w_pos.x and
-				x <= (self.w_pos.x + self.w_sz.width + self.decorations_width) and
+				x <= (self.w_pos.x + self.w_sz.width + self.w_dec.w) and
 				y > self.w_pos.y and
-				y <= (self.w_pos.y + self.w_sz.height + self.decorations_height)):
+				y <= (self.w_pos.y + self.w_sz.height + self.w_dec.h)):
 			# pointer is over our window, so make it an empty pixbuf
 			self.img = None
+
 		else:
 			root = Gdk.get_default_root_window()
-			scaled_width = self.w_sz.width // self.zoomlevel
-			scaled_height = self.w_sz.height // self.zoomlevel
-			scaled_xoff = scaled_width // 2
-			scaled_yoff = scaled_height // 2
-			screenshot = Gdk.pixbuf_get_from_window(
-				root, x - scaled_xoff,
-				y - scaled_yoff, scaled_width, scaled_height)
+			wx, hx = self.w_sz.width // self.zoom_k, self.w_sz.height // self.zoom_k
+			screenshot = Gdk.pixbuf_get_from_window(root, x - wx // 2, y - hx // 2, wx, hx)
 			if screenshot:
-				screenshot = self.tweak_colors(screenshot)
-				screenshot = screenshot.scale_simple(
+				self.img = self.tweak_colors(screenshot).scale_simple(
 					self.w_sz.width, self.w_sz.height, GdkPixbuf.InterpType.NEAREST )
-				self.img = Gdk.cairo_surface_create_from_pixbuf(screenshot, 0, None)
+
 		self.da.queue_draw()
 		return True
 
@@ -169,7 +160,7 @@ class Magnus:
 		w, h = w.width, w.height
 		Gtk.render_background(da.get_style_context(), ctx, 0, 0, w, h)
 		if not self.img: return
-		ctx.set_source_surface(self.img, 0, 0)
+		Gdk.cairo_set_source_pixbuf(ctx, self.img, 0, 0)
 		ctx.paint()
 
 
