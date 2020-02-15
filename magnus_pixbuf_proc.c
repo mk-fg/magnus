@@ -47,6 +47,7 @@ mpp_curves(PyObject *self, PyObject *args) {
 		buff += 3;
 	}
 
+	PyBuffer_Release(&img);
 	return Py_None;
 }
 
