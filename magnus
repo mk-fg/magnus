@@ -25,10 +25,10 @@ class adict(dict):
 
 class MagnusCC:
 
-	def __init__(self, zoom, refresh_interval):
+	def __init__(self, zoom, refresh_interval, color_tweak_mode):
 		self.zoom_k = zoom
 		self.refresh_interval = refresh_interval
-		self.color_tweaks = True
+		self.color_tweak_mode = color_tweak_mode # see C code for list of modes
 		self.app = Gtk.Application.new('org.jncDdHBql.K9LwUiqXJ.magnus', 0)
 		self.app.connect('activate', self.app_init)
 
@@ -77,14 +77,14 @@ class MagnusCC:
 				Keybinder.bind('<Alt><Super>c', self.toggle_color_tweaks)
 
 		# updates
-		self.last_pos = None
-		self.w_sz = adict(width=0, height=0)
-		self.w_pos = adict(x=0, y=0)
+		self.c_pos, self.w_sz = None, adict(width=0, height=0)
 		GLib.timeout_add(250, self.read_window_size)
 		GLib.timeout_add(self.refresh_interval, self.update)
 
 		# resize and present window
 		self.w.show_all()
+
+	def run(self): self.app.run()
 
 
 	def zoom_out(self, keypress, zoom):
@@ -105,7 +105,7 @@ class MagnusCC:
 		self.update(force_refresh=True)
 
 	def toggle_color_tweaks(self, keypress):
-		self.color_tweaks = not self.color_tweaks
+		self.color_tweak_mode = (self.color_tweak_mode + 1) % 2**30
 		self.update(force_refresh=True)
 
 	def read_window_size(self, *args):
@@ -114,19 +114,17 @@ class MagnusCC:
 	def window_configure(self, window, ev):
 		self.read_window_size()
 		if ev.type != Gdk.EventType.CONFIGURE: return
-		self.w_pos = ev
 
 
 	def update(self, force_refresh=False):
 		screen, x, y, modifier = Gdk.Display.get_default().get_pointer()
-		if not force_refresh and self.last_pos == (x, y): return True # no changes
-		self.last_pos = x, y
-		root = Gdk.get_default_root_window()
+		if not force_refresh and self.c_pos == (x, y): return True # no changes
+		self.c_pos = x, y
 		wx, hx = self.w_sz.width // self.zoom_k, self.w_sz.height // self.zoom_k
-		screenshot = Gdk.pixbuf_get_from_window(root, x - wx // 2, y - hx // 2, wx, hx)
+		screenshot = Gdk.pixbuf_get_from_window(
+			Gdk.get_default_root_window(), x - wx // 2, y - hx // 2, wx, hx )
 		if screenshot:
-			if self.color_tweaks: screenshot = self.tweak_colors(screenshot)
-			self.img = screenshot.scale_simple(
+			self.img = self.tweak_colors(screenshot).scale_simple(
 				wx * self.zoom_k, hx * self.zoom_k, GdkPixbuf.InterpType.NEAREST)
 			self.da.queue_draw()
 		return True
@@ -138,7 +136,7 @@ class MagnusCC:
 		else:
 			w, h = screenshot.get_width(), screenshot.get_height()
 			rs, buff = screenshot.get_rowstride(), screenshot.get_pixels()
-			mpp.apply_curves(w, h, buff)
+			mpp.apply_curves(self.color_tweak_mode, w, h, buff)
 			screenshot = GdkPixbuf.Pixbuf.new_from_data(buff, cs, False, 8, w, h, rs)
 		return screenshot
 
@@ -161,8 +159,11 @@ def main(args=None):
 	parser.add_argument('-r', '--refresh-interval',
 		type=int, metavar='ms', default=250,
 		help='Refresh interval in milliseconds (lower is faster). Default: %(default)s')
+	parser.add_argument('-c', '--color-tweak-mode',
+		type=int, metavar='n', default=1,
+		help='Color tweak mode number, as defined in C code. 0 - disable. Default: %(default)s')
 	opts = parser.parse_args(sys.argv[1:] if args is None else args)
-	MagnusCC(opts.initial_zoom, opts.refresh_interval).app.run()
+	MagnusCC(opts.initial_zoom, opts.refresh_interval, opts.color_tweak_mode).run()
 
 if __name__ == '__main__':
 	import signal

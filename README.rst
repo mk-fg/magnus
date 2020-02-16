@@ -7,9 +7,12 @@ more distinctive within specific small input range (think GIMP Color Levels/Curv
 
 .. _stuartlangridge/magnus: https://github.com/stuartlangridge/magnus/
 
-Use-case is visual aid for editing small GTK+ Theme elements, where I can't tell
-colors of most pixels apart, looking through colorblind eyes at old crappy
-el-cheapo display, and them being already very close there to begin with.
+Use-case is visual aid for editing small `GTK+ Theme`_ elements,
+where one can't tell colors of most pixels apart, looking through
+colorblind eyes at old crappy cheap display, and them being
+already very close there to begin with.
+
+.. _GTK+ Theme: https://github.com/mk-fg/clearlooks-phenix-humanity
 
 Consists of simplified magnus gtk app (with bunch of stuff removed)
 and tiny C module to process image pixels quickly.
@@ -31,8 +34,8 @@ Dependencies (Arch):
 - (optional) libkeybinder3 - for Win-Alt-<plus/minus> zoom keys and such
 - (optional) python-setproctitle - "magnus" in ps output instead of "python ..." line
 
-Global key bindings:
+Global key bindings (only available with optional libkeybinder3):
 
 - Win-Alt-<plus/equal>: increase zoom level +1
 - Win-Alt-<minus>: decrease zoom level -1
-- Win-Alt-c: cycle color tweaks mode(s)
+- Win-Alt-c: cycle color-tweak curves/modes
