@@ -131,20 +131,20 @@ class MagnusCC:
 			Gdk.get_default_root_window(), x - wx // 2, y - hx // 2, wx, hx )
 		if screenshot:
 			self.img = self.tweak_colors(screenshot).scale_simple(
-				wx * self.zoom_k, hx * self.zoom_k, GdkPixbuf.InterpType.NEAREST)
+				wx * self.zoom_k, hx * self.zoom_k, GdkPixbuf.InterpType.NEAREST )
 			self.da.queue_draw()
 		return True
 
-	def tweak_colors(self, screenshot):
-		cs = screenshot.get_property('colorspace')
+	def tweak_colors(self, img):
+		cs = img.get_property('colorspace')
 		if cs != GdkPixbuf.Colorspace.RGB:
 			warnings.warn(f'Disabling color tweaks - unsupported colorspace: {cs}')
 		else:
-			w, h = screenshot.get_width(), screenshot.get_height()
-			rs, buff = screenshot.get_rowstride(), screenshot.get_pixels()
-			mpp.apply_curves(self.color_mode, w, h, buff)
-			screenshot = GdkPixbuf.Pixbuf.new_from_data(buff, cs, False, 8, w, h, rs)
-		return screenshot
+			buff = img.get_pixels()
+			mpp.apply_curves(self.color_mode, buff)
+			img = GdkPixbuf.Pixbuf.new_from_data( buff, cs,
+				False, 8, img.get_width(), img.get_height(), img.get_rowstride() )
+		return img
 
 	def draw(self, da, ctx):
 		if not self.img:
@@ -156,18 +156,19 @@ class MagnusCC:
 
 
 def main(args=None):
+	mode_info = ', '.join(f'{n} - {m}' for n,m in enumerate(mpp.color_modes))
 	import argparse
 	parser = argparse.ArgumentParser(
 		description='Simple screen magnifier tool with color tweaks.')
 	parser.add_argument('-r', '--refresh-interval',
 		type=int, metavar='ms', default=250,
-		help='Refresh interval in milliseconds (lower is faster). Default: %(default)s')
+		help='Refresh interval in milliseconds (lower is faster). Default: %(default)sms')
 	parser.add_argument('-z', '--initial-zoom',
 		type=int, metavar='level', default=2,
 		help='Initial zoom level/factor. Default: %(default)sx')
 	parser.add_argument('-c', '--color-mode',
 		type=int, metavar='n', default=1,
-		help='Color tweak mode number, as defined in C code. 0 - disable. Default: %(default)s')
+		help=f'Color tweak mode index: {mode_info}. Default: %(default)s')
 	opts = parser.parse_args(sys.argv[1:] if args is None else args)
 	MagnusCC(opts.initial_zoom, opts.refresh_interval, opts.color_mode).run()
 

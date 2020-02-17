@@ -9,7 +9,7 @@
 // Usage:
 //  import magnus_pixbuf_proc as mpp
 //  print(mpp.color_modes)
-//  mpp.apply_curves(mode_index, w, h, buff)
+//  mpp.apply_curves(mode_index, buff)
 //
 // How to update: use Color Levels/Curves tools in GIMP
 //  on a screenshot to pick right parameters, look at gimpoperation*.c
@@ -22,7 +22,7 @@
 #include <Python.h>
 
 
-// Value mapping: y(x) = y-min + x-fraction(0-1.0) * y-range
+// Value mapping: y(x) = y-min + (x / x-range) * y-range
 
 // Curve-1 for each of RGB - for light colors
 // --------x
@@ -76,34 +76,30 @@ static PyObject *mpp_error;
 
 static PyObject *
 mpp_curves(PyObject *self, PyObject *args) {
-	unsigned int color_mode; unsigned short w, h; Py_buffer img;
-	if (!PyArg_ParseTuple(args, "IHHy*", &color_mode, &w, &h, &img)) return NULL;
+	unsigned char color_mode; Py_buffer img;
+	if (!PyArg_ParseTuple(args, "By*", &color_mode, &img)) return NULL;
 	PyObject *res = NULL;
 
 	if (color_mode > mpp_color_mode_max) {
-		char *err;
-		int n = asprintf( &err,
+		char *err; int i = asprintf( &err,
 			"Index out of range for mpp.color_modes list: %d", color_mode );
-		PyErr_SetString(mpp_error, err);
-		goto end;
-	}
+		PyErr_SetString(PyExc_ValueError, err);
+		goto end; }
+	if (!PyBuffer_IsContiguous(&img, 'C')) { // not sure if it ever happens
+		PyErr_SetString( mpp_error,
+			"BUG - cannot process bytes object, as it's not contiguous in memory" );
+		goto end; }
 
-	double (*curve_func)(double x) = NULL;
+	double (*curve_func)(double) = NULL;
 	switch (color_mode) {
 		default: case 0: break;
 		case 1: curve_func = &mpp_light_chan_value_map; break;
 		case 2: curve_func = &mpp_mid_chan_value_map; break;
-		case 3: curve_func = &mpp_dark_chan_value_map; break;
-	}
+		case 3: curve_func = &mpp_dark_chan_value_map; break; }
 
 	if (curve_func) {
 		unsigned char *buff = img.buf;
-		unsigned char *end = buff + img.len;
-		while (buff < end) {
-			buff[0] = curve_func(buff[0]); // R
-			buff[1] = curve_func(buff[1]); // G
-			buff[2] = curve_func(buff[2]); // B
-			buff += 3; } }
+		for (unsigned int n = 0; n < img.len; n++) buff[n] = curve_func(buff[n]); }
 	res = Py_None;
 
 	end:
@@ -116,7 +112,7 @@ mpp_curves(PyObject *self, PyObject *args) {
 
 static PyMethodDef mpp_methods[] = {
 	{"apply_curves", mpp_curves, METH_VARARGS,
-		"(mode_index,w,h,buffer) Loop over specified image-pixel-buffer,"
+		"(mode_index,buffer) Loop over specified image-pixel-buffer,"
 			" applying hardcoded curve adjustments to each pixel in there."},
 	{NULL, NULL, 0, NULL}
 };
