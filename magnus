@@ -119,7 +119,7 @@ class MagnusCC:
 		self.update(force_refresh=True)
 
 	def read_window_size(self, *ev):
-		self.w_sz = self.w.get_size()
+		self.w_sz = self.da.get_allocation()
 
 
 	def update(self, force_refresh=False):
@@ -147,9 +147,9 @@ class MagnusCC:
 		return screenshot
 
 	def draw(self, da, ctx):
-		da_sz = da.get_allocation()
 		if not self.img:
-			Gtk.render_background(da.get_style_context(), ctx, 0, 0, da_sz.width, da_sz.height)
+			Gtk.render_background( da.get_style_context(),
+				ctx, 0, 0, self.w_sz.width, self.w_sz.height )
 		else:
 			Gdk.cairo_set_source_pixbuf(ctx, self.img, 0, 0)
 			ctx.paint()
