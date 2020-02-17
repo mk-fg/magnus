@@ -25,10 +25,10 @@ class adict(dict):
 
 class MagnusCC:
 
-	def __init__(self, zoom, refresh_interval, color_tweak_mode):
-		self.zoom_k = zoom
+	def __init__(self, zoom, refresh_interval, color_mode):
 		self.refresh_interval = refresh_interval
-		self.color_tweak_mode = color_tweak_mode # see C code for list of modes
+		self.zoom_k = zoom
+		self.color_mode = color_mode # see C code for list of modes
 		self.app = Gtk.Application.new('org.jncDdHBql.K9LwUiqXJ.magnus', 0)
 		self.app.connect('activate', self.app_init)
 
@@ -37,35 +37,43 @@ class MagnusCC:
 		GLib.set_application_name(app_name)
 
 		# the window
-		self.w = Gtk.ApplicationWindow.new(self.app)
-		self.w.set_default_size(600, 400)
-		self.w.set_title(app_name)
-		self.w.connect('destroy', lambda a: self.app.quit())
-		self.w.connect('configure-event', self.window_configure)
-		self.w.connect('window-state-event', self.window_configure)
+		self.w = win = Gtk.ApplicationWindow.new(self.app)
+		win.set_default_size(600, 400)
+		win.set_title(app_name)
+		win.connect('destroy', lambda a: self.app.quit())
+		win.connect('configure-event', self.read_window_size)
+		win.connect('window-state-event', self.read_window_size)
+		GLib.timeout_add(250, self.read_window_size)
 
 		# the headerbar
 		head = Gtk.HeaderBar()
 		head.set_show_close_button(True)
 		head.props.title = app_name
-		self.w.set_titlebar(head)
+		win.set_titlebar(head)
 
-		# the zoom chooser
+		# headerbar - color mode box
+		cm = Gtk.ComboBoxText.new()
+		for n, label in enumerate(mpp.color_modes):
+			cm.append(str(n), label)
+			if not n or n == self.color_mode: cm.set_active(n)
+		cm.connect('changed', self.color_mode_set)
+		head.pack_end(cm)
+
+		# headerbar - zoom chooser
 		zoom = Gtk.ComboBoxText.new()
-		self.zoom = zoom
 		for n, x in enumerate(range(2, 6)):
 			zoom.append(str(x), f'{x}×')
 			if not n or x == self.zoom_k: zoom.set_active(n)
-		zoom.connect('changed', self.set_zoom)
+		zoom.connect('changed', self.zoom_set)
 		head.pack_end(zoom)
 
 		# whole window is cairo drawing surface
 		self.img = None
-		self.da = Gtk.DrawingArea()
-		self.da.set_hexpand(True)
-		self.da.set_vexpand(True)
-		self.da.connect('draw', self.draw)
-		self.w.add(self.da)
+		self.da = da = Gtk.DrawingArea()
+		da.set_hexpand(True)
+		da.set_vexpand(True)
+		da.connect('draw', self.draw)
+		win.add(da)
 
 		# bind the zoom keyboard shortcuts
 		if Keybinder:
@@ -74,15 +82,14 @@ class MagnusCC:
 				Keybinder.bind('<Alt><Super>plus', self.zoom_in, zoom)
 				Keybinder.bind('<Alt><Super>equal', self.zoom_in, zoom)
 				Keybinder.bind('<Alt><Super>minus', self.zoom_out, zoom)
-				Keybinder.bind('<Alt><Super>c', self.toggle_color_tweaks)
+				Keybinder.bind('<Alt><Super>c', self.color_mode_toggle, cm)
 
 		# updates
 		self.c_pos, self.w_sz = None, adict(width=0, height=0)
-		GLib.timeout_add(250, self.read_window_size)
 		GLib.timeout_add(self.refresh_interval, self.update)
 
 		# resize and present window
-		self.w.show_all()
+		win.show_all()
 
 	def run(self): self.app.run()
 
@@ -91,29 +98,28 @@ class MagnusCC:
 		current_index = zoom.get_active()
 		if current_index == 0: return
 		zoom.set_active(current_index - 1)
-		self.set_zoom(zoom)
 
 	def zoom_in(self, keypress, zoom):
 		current_index = zoom.get_active()
 		size = zoom.get_model().iter_n_children(None)
 		if current_index == size - 1: return
 		zoom.set_active(current_index + 1)
-		self.set_zoom(zoom)
 
-	def set_zoom(self, zoom):
-		self.zoom_k = int(zoom.get_active_text()[0])
+	def zoom_set(self, zoom):
+		self.zoom_k = int(zoom.get_active_id())
 		self.update(force_refresh=True)
 
-	def toggle_color_tweaks(self, keypress):
-		self.color_tweak_mode = (self.color_tweak_mode + 1) % 2**30
+	def color_mode_toggle(self, keypress, cm):
+		current_index = cm.get_active()
+		size = cm.get_model().iter_n_children(None)
+		cm.set_active((current_index + 1) % size)
+
+	def color_mode_set(self, cm):
+		self.color_mode = cm.get_active()
 		self.update(force_refresh=True)
 
-	def read_window_size(self, *args):
+	def read_window_size(self, *ev):
 		self.w_sz = self.w.get_size()
-
-	def window_configure(self, window, ev):
-		self.read_window_size()
-		if ev.type != Gdk.EventType.CONFIGURE: return
 
 
 	def update(self, force_refresh=False):
@@ -136,7 +142,7 @@ class MagnusCC:
 		else:
 			w, h = screenshot.get_width(), screenshot.get_height()
 			rs, buff = screenshot.get_rowstride(), screenshot.get_pixels()
-			mpp.apply_curves(self.color_tweak_mode, w, h, buff)
+			mpp.apply_curves(self.color_mode, w, h, buff)
 			screenshot = GdkPixbuf.Pixbuf.new_from_data(buff, cs, False, 8, w, h, rs)
 		return screenshot
 
@@ -153,17 +159,17 @@ def main(args=None):
 	import argparse
 	parser = argparse.ArgumentParser(
 		description='Simple screen magnifier tool with color tweaks.')
-	parser.add_argument('-z', '--initial-zoom',
-		type=int, metavar='level', default=2,
-		help='Initial zoom level/factor. Default: %(default)sx')
 	parser.add_argument('-r', '--refresh-interval',
 		type=int, metavar='ms', default=250,
 		help='Refresh interval in milliseconds (lower is faster). Default: %(default)s')
-	parser.add_argument('-c', '--color-tweak-mode',
+	parser.add_argument('-z', '--initial-zoom',
+		type=int, metavar='level', default=2,
+		help='Initial zoom level/factor. Default: %(default)sx')
+	parser.add_argument('-c', '--color-mode',
 		type=int, metavar='n', default=1,
 		help='Color tweak mode number, as defined in C code. 0 - disable. Default: %(default)s')
 	opts = parser.parse_args(sys.argv[1:] if args is None else args)
-	MagnusCC(opts.initial_zoom, opts.refresh_interval, opts.color_tweak_mode).run()
+	MagnusCC(opts.initial_zoom, opts.refresh_interval, opts.color_mode).run()
 
 if __name__ == '__main__':
 	import signal

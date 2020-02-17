@@ -15,6 +15,7 @@
 //  for reference on what GIMP does with channels, copy algo here.
 //
 
+#define __STDC_WANT_LIB_EXT2__ 1
 #include <stdio.h>
 
 #include <Python.h>
@@ -30,7 +31,7 @@
 //   --o = (170,20)
 //  /
 // x--------
-double curve1_chan_value_map(double x) {
+double mpp_curve1_chan_value_map(double x) {
 	double ox = 170, oy = 20;
 	if (x < ox) return 0 + (x / ox) * oy;
 	return oy + ((x - ox) / (255.0 - ox)) * (255.0 - oy);
@@ -43,7 +44,7 @@ double curve1_chan_value_map(double x) {
 //     /
 //  /-a = (120,20)
 // x--------
-double curve2_chan_value_map(double x) {
+double mpp_curve2_chan_value_map(double x) {
 	double ax = 120, ay = 20;
 	double bx = 170, by = 220;
 	if (x < ax) return 0 + (x / ax) * ay;
@@ -51,37 +52,51 @@ double curve2_chan_value_map(double x) {
 	return by + ((x - bx) / (255 - bx)) * (255.0 - by);
 }
 
+#define mpp_color_mode_max 2
+#define mpp_color_mode_list \
+	Py_BuildValue("[s,s,s]", "none", "light shades", "mid shades")
+
+
+static PyObject *mpp_error;
 
 static PyObject *
 mpp_curves(PyObject *self, PyObject *args) {
-	unsigned int curve; unsigned short w, h; Py_buffer img;
-	if (!PyArg_ParseTuple(args, "IHHy*", &curve, &w, &h, &img)) return NULL;
+	unsigned int color_mode; unsigned short w, h; Py_buffer img;
+	if (!PyArg_ParseTuple(args, "IHHy*", &color_mode, &w, &h, &img)) return NULL;
+	PyObject *res = NULL;
 
-	double (*curve_func)(double x);
-	switch (curve % 3) {
-		default: case 0: goto done;
-		case 1: curve_func = &curve1_chan_value_map; break;
-		case 2: curve_func = &curve2_chan_value_map; break;
+	if (color_mode > mpp_color_mode_max) {
+		char *err;
+		int n = asprintf( &err,
+			"Index out of range for mpp.color_modes list: %d", color_mode );
+		PyErr_SetString(mpp_error, err);
+		goto end;
 	}
 
-	unsigned char *buff = img.buf;
-	unsigned char *end = buff + img.len;
-	while (buff < end) {
-		buff[0] = curve_func(buff[0]);
-		buff[1] = curve_func(buff[1]);
-		buff[2] = curve_func(buff[2]);
-		buff += 3;
+	double (*curve_func)(double x) = NULL;
+	switch (color_mode) {
+		default: case 0: break;
+		case 1: curve_func = &mpp_curve1_chan_value_map; break;
+		case 2: curve_func = &mpp_curve2_chan_value_map; break;
 	}
 
-	done:
+	if (curve_func) {
+		unsigned char *buff = img.buf;
+		unsigned char *end = buff + img.len;
+		while (buff < end) {
+			buff[0] = curve_func(buff[0]);
+			buff[1] = curve_func(buff[1]);
+			buff[2] = curve_func(buff[2]);
+			buff += 3; } }
+	res = Py_None;
+
+	end:
 	PyBuffer_Release(&img);
-	return Py_None;
+	return res;
 }
 
 
 // Python C-API boilerplate
-
-static PyObject *mpp_error;
 
 static PyMethodDef mpp_methods[] = {
 	{"apply_curves", mpp_curves, METH_VARARGS,
@@ -101,8 +116,12 @@ static struct PyModuleDef mpp_module = {
 PyMODINIT_FUNC PyInit_magnus_pixbuf_proc(void) {
 	PyObject *m = PyModule_Create(&mpp_module);
 	if (!m) return NULL;
+
+	PyModule_AddObject(m, "color_modes", mpp_color_mode_list);
+
 	mpp_error = PyErr_NewException("magnus_pixbuf_proc.error", NULL, NULL);
 	Py_INCREF(mpp_error);
 	PyModule_AddObject(m, "error", mpp_error);
+
 	return m;
 }
