@@ -8,7 +8,8 @@
 //    magnus_pixbuf_proc.c -o magnus_pixbuf_proc.so
 // Usage:
 //  import magnus_pixbuf_proc as mpp
-//  mpp.apply_curves(w, h, buff)
+//  print(mpp.color_modes)
+//  mpp.apply_curves(mode_index, w, h, buff)
 //
 // How to update: use Color Levels/Curves tools in GIMP
 //  on a screenshot to pick right parameters, look at gimpoperation*.c
@@ -31,7 +32,7 @@
 //   --o = (170,20)
 //  /
 // x--------
-double mpp_curve1_chan_value_map(double x) {
+double mpp_light_chan_value_map(double x) {
 	double ox = 170, oy = 20;
 	if (x < ox) return 0 + (x / ox) * oy;
 	return oy + ((x - ox) / (255.0 - ox)) * (255.0 - oy);
@@ -44,17 +45,31 @@ double mpp_curve1_chan_value_map(double x) {
 //     /
 //  /-a = (120,20)
 // x--------
-double mpp_curve2_chan_value_map(double x) {
+double mpp_mid_chan_value_map(double x) {
 	double ax = 120, ay = 20;
 	double bx = 170, by = 220;
 	if (x < ax) return 0 + (x / ax) * ay;
 	if (x < bx) return ay + ((x - ax) / (bx - ax)) * (by - ay);
-	return by + ((x - bx) / (255 - bx)) * (255.0 - by);
+	return by + ((x - bx) / (255.0 - bx)) * (255.0 - by);
 }
 
-#define mpp_color_mode_max 2
+// Curve-3 for each of RGB - dark colors
+// -------x
+//       /
+//    o-- = (120,220)
+//   /
+//  /
+// x-------
+double mpp_dark_chan_value_map(double x) {
+	double ox = 120, oy = 220;
+	if (x < ox) return 0 + (x / ox) * oy;
+	return oy + ((x - ox) / (255.0 - ox)) * (255.0 - oy);
+}
+
+#define mpp_color_mode_max 3
 #define mpp_color_mode_list \
-	Py_BuildValue("[s,s,s]", "none", "light shades", "mid shades")
+	Py_BuildValue( "[s,s,s,s]", "none", \
+		"light shades", "mid shades", "dark shades" )
 
 
 static PyObject *mpp_error;
@@ -76,17 +91,18 @@ mpp_curves(PyObject *self, PyObject *args) {
 	double (*curve_func)(double x) = NULL;
 	switch (color_mode) {
 		default: case 0: break;
-		case 1: curve_func = &mpp_curve1_chan_value_map; break;
-		case 2: curve_func = &mpp_curve2_chan_value_map; break;
+		case 1: curve_func = &mpp_light_chan_value_map; break;
+		case 2: curve_func = &mpp_mid_chan_value_map; break;
+		case 3: curve_func = &mpp_dark_chan_value_map; break;
 	}
 
 	if (curve_func) {
 		unsigned char *buff = img.buf;
 		unsigned char *end = buff + img.len;
 		while (buff < end) {
-			buff[0] = curve_func(buff[0]);
-			buff[1] = curve_func(buff[1]);
-			buff[2] = curve_func(buff[2]);
+			buff[0] = curve_func(buff[0]); // R
+			buff[1] = curve_func(buff[1]); // G
+			buff[2] = curve_func(buff[2]); // B
 			buff += 3; } }
 	res = Py_None;
 
@@ -100,7 +116,7 @@ mpp_curves(PyObject *self, PyObject *args) {
 
 static PyMethodDef mpp_methods[] = {
 	{"apply_curves", mpp_curves, METH_VARARGS,
-		"(w,h,buffer) Loop over specified image-pixel-buffer,"
+		"(mode_index,w,h,buffer) Loop over specified image-pixel-buffer,"
 			" applying hardcoded curve adjustments to each pixel in there."},
 	{NULL, NULL, 0, NULL}
 };

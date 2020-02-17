@@ -39,3 +39,5 @@ Global key bindings (only available with optional libkeybinder3):
 - Win-Alt-<plus/equal>: increase zoom level +1
 - Win-Alt-<minus>: decrease zoom level -1
 - Win-Alt-c: cycle color-tweak curves/modes
+
+Color tweak / curve parameters: see magnus_pixbuf_proc.c
