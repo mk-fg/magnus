@@ -36,8 +36,18 @@ Dependencies (Arch):
 
 Global key bindings (only available with optional libkeybinder3):
 
-- Win-Alt-<plus/equal>: increase zoom level +1
-- Win-Alt-<minus>: decrease zoom level -1
-- Win-Alt-c: cycle color-tweak curves/modes
+- Pixel-size zoom:
 
-Color tweak / curve parameters: see magnus_pixbuf_proc.c
+  - Win-Alt-<plus/equal>: increase zoom level +1
+  - Win-Alt-<minus>: decrease zoom level -1
+
+- Color zoom/tweaks:
+
+  - Win-Alt-c: cycle color-tweak curves/modes
+
+  For color curve parameters see magnus_pixbuf_proc.c file.
+
+- Freeze-split mode (to compare zoomed images):
+
+  - Win-Alt-f: freeze-toggle what's currently under cursor in half of the window
+  - Win-Alt-Ctrl-f: same as freeze-toggle above, but with 2s delay (-d/--freeze-key-delay option)

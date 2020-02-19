@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os, sys, warnings, inspect, pathlib as pl
+import os, sys, warnings, enum, inspect, pathlib as pl
 
 try: import setproctitle # pip3 install --user proctitle
 except ImportError: setproctitle = None
@@ -22,13 +22,18 @@ class adict(dict):
 		super().__init__(*args, **kwargs)
 		self.__dict__ = self
 
+split_mode = enum.Enum('split_mode', 'h v')
+
 
 class MagnusCC:
 
 	def __init__(self,
-			zoom_k=2, color_mode=1, refresh_ms=250, refresh_ms_force=None ):
-		for k, v in list(inspect.getargvalues( # set init args as instance attrs
-			inspect.currentframe() ).locals.items())[1:]: setattr(self, k, v)
+			zoom_k=2, color_mode=1,
+			freeze_split=split_mode.h, freeze_delay_ms=2000,
+			refresh_ms=250, refresh_ms_force=None ):
+		for k, v in inspect.getargvalues(inspect.currentframe() ).locals.items():
+			if k != 'self': setattr(self, k, v)
+		self.freeze_split = adict((k, self.freeze_split == split_mode[k]) for k in 'hv')
 		if self.refresh_ms_force and self.refresh_ms_force < self.refresh_ms:
 			self.refresh_ms = self.refresh_ms_force
 		self.app = Gtk.Application.new('org.jncDdHBql.K9LwUiqXJ.magnus', 0)
@@ -70,7 +75,7 @@ class MagnusCC:
 		head.pack_end(zoom)
 
 		# whole window is cairo drawing surface
-		self.img = None
+		self.img = self.img_freeze = None
 		self.da = da = Gtk.DrawingArea()
 		da.set_hexpand(True)
 		da.set_vexpand(True)
@@ -79,7 +84,7 @@ class MagnusCC:
 
 		# updates
 		self.c_pos, self.w_sz = None, adict(width=0, height=0)
-		self.update_force_timer = None
+		self.update_force_timer = self.freeze_split_delay = None
 		GLib.timeout_add(self.refresh_ms, self.update)
 
 		# bind the zoom keyboard shortcuts
@@ -90,6 +95,8 @@ class MagnusCC:
 				Keybinder.bind('<Alt><Super>equal', self.zoom_in, zoom)
 				Keybinder.bind('<Alt><Super>minus', self.zoom_out, zoom)
 				Keybinder.bind('<Alt><Super>c', self.color_mode_toggle, cm)
+				Keybinder.bind('<Alt><Super>f', self.freeze_split_toggle)
+				Keybinder.bind('<Alt><Super><Ctrl>f', self.freeze_split_delayed)
 
 		# show window
 		win.show_all()
@@ -125,6 +132,22 @@ class MagnusCC:
 		self.w_sz = self.da.get_allocation()
 
 
+	def freeze_split_toggle(self, keypress=None, force=False):
+		if not force and self.img_freeze: self.img_freeze = None
+		else: self.img_freeze = True
+		self.update(force_refresh=True)
+		if self.img_freeze: self.img_freeze = self.img
+
+	def freeze_split_delayed(self, keypress):
+		if self.freeze_split_delay: return
+		self.freeze_split_delay = GLib.timeout_add(
+			self.freeze_delay_ms, self.freeze_split_delay_func )
+
+	def freeze_split_delay_func(self):
+		self.freeze_split_delay = None
+		self.freeze_split_toggle(force=True)
+
+
 	def update_force_timer_func(self):
 		self.update_force_timer = None
 		self.update(force_refresh=True)
@@ -141,12 +164,16 @@ class MagnusCC:
 		if self.update_force_timer: GLib.source_remove(self.update_force_timer)
 
 		self.c_pos = x, y
-		wx, hx = self.w_sz.width // self.zoom_k, self.w_sz.height // self.zoom_k
+		w, h = self.w_sz.width, self.w_sz.height
+		if self.img_freeze:
+			if self.freeze_split.h: h //= 2
+			elif self.freeze_split.v: w //= 2
+		w, h = w // self.zoom_k, h // self.zoom_k
 		screenshot = Gdk.pixbuf_get_from_window(
-			Gdk.get_default_root_window(), x - wx // 2, y - hx // 2, wx, hx )
+			Gdk.get_default_root_window(), x - w // 2, y - h // 2, w, h )
 		if screenshot:
 			self.img = self.tweak_colors(screenshot).scale_simple(
-				wx * self.zoom_k, hx * self.zoom_k, GdkPixbuf.InterpType.NEAREST )
+				w * self.zoom_k, h * self.zoom_k, GdkPixbuf.InterpType.NEAREST )
 			self.da.queue_draw()
 		return True
 
@@ -168,6 +195,10 @@ class MagnusCC:
 		else:
 			Gdk.cairo_set_source_pixbuf(ctx, self.img, 0, 0)
 			ctx.paint()
+			if self.img_freeze:
+				ctx.translate(0, self.img.get_height())
+				Gdk.cairo_set_source_pixbuf(ctx, self.img_freeze, 0, 0)
+				ctx.paint()
 
 
 def main(args=None):
@@ -197,13 +228,27 @@ def main(args=None):
 			' Special 0 value will set it to be equal to -r/--refresh-interval.'
 			' Default: none (disabled)')
 
+	group = parser.add_argument_group('Freeze-split mode parameters')
+	group.add_argument('-s', '--freeze-split',
+		metavar='( h | v )', default='horizontal',
+		help='When using freeze-key feature,'
+				' sets how to split the window - either horizontally or vertically.'
+			' Only first letter matters (h or v). Default: %(default)s')
+	group.add_argument('-d', '--freeze-key-delay',
+		type=float, metavar='s', default=2.0,
+		help='Delay value between "delayed freeze-key" keypress'
+			' and taking a snapshot, in seconds (can be <1.0). Default: %(default)ss')
+
 	opts = parser.parse_args(sys.argv[1:] if args is None else args)
 
 	if opts.refresh_interval_force == 0:
 		opts.refresh_interval_force = opts.refresh_interval
+	try: fsm = split_mode[(opts.freeze_split.strip() or 'h')[0].lower()]
+	except KeyError: parser.error(f'Invalid -s/--freeze-split value: {opts.freeze_split}')
 
 	MagnusCC(
 		opts.initial_zoom, opts.color_mode,
+		fsm, int(opts.freeze_key_delay * 1e3),
 		opts.refresh_interval, opts.refresh_interval_force ).run()
 
 if __name__ == '__main__':
