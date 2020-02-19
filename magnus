@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os, sys, warnings, pathlib as pl
+import os, sys, warnings, inspect, pathlib as pl
 
 try: import setproctitle # pip3 install --user proctitle
 except ImportError: setproctitle = None
@@ -25,10 +25,12 @@ class adict(dict):
 
 class MagnusCC:
 
-	def __init__(self, zoom, refresh_interval, color_mode):
-		self.refresh_interval = refresh_interval
-		self.zoom_k = zoom
-		self.color_mode = color_mode # see C code for list of modes
+	def __init__(self,
+			zoom_k=2, color_mode=1, refresh_ms=250, refresh_ms_force=None ):
+		for k, v in list(inspect.getargvalues( # set init args as instance attrs
+			inspect.currentframe() ).locals.items())[1:]: setattr(self, k, v)
+		if self.refresh_ms_force and self.refresh_ms_force < self.refresh_ms:
+			self.refresh_ms = self.refresh_ms_force
 		self.app = Gtk.Application.new('org.jncDdHBql.K9LwUiqXJ.magnus', 0)
 		self.app.connect('activate', self.app_init)
 
@@ -75,6 +77,11 @@ class MagnusCC:
 		da.connect('draw', self.draw)
 		win.add(da)
 
+		# updates
+		self.c_pos, self.w_sz = None, adict(width=0, height=0)
+		self.update_force_timer = None
+		GLib.timeout_add(self.refresh_ms, self.update)
+
 		# bind the zoom keyboard shortcuts
 		if Keybinder:
 			Keybinder.init()
@@ -84,11 +91,7 @@ class MagnusCC:
 				Keybinder.bind('<Alt><Super>minus', self.zoom_out, zoom)
 				Keybinder.bind('<Alt><Super>c', self.color_mode_toggle, cm)
 
-		# updates
-		self.c_pos, self.w_sz = None, adict(width=0, height=0)
-		GLib.timeout_add(self.refresh_interval, self.update)
-
-		# resize and present window
+		# show window
 		win.show_all()
 
 	def run(self): self.app.run()
@@ -122,9 +125,21 @@ class MagnusCC:
 		self.w_sz = self.da.get_allocation()
 
 
+	def update_force_timer_func(self):
+		self.update_force_timer = None
+		self.update(force_refresh=True)
+
 	def update(self, force_refresh=False):
+		# Check and cancel/delay update, if not needed
 		screen, x, y, modifier = Gdk.Display.get_default().get_pointer()
-		if not force_refresh and self.c_pos == (x, y): return True # no changes
+		if self.refresh_ms == self.refresh_ms_force: force_refresh = True
+		if not force_refresh and self.c_pos == (x, y):
+			if self.refresh_ms_force and not self.update_force_timer:
+				self.update_force_timer = GLib.timeout_add(
+					self.refresh_ms_force - self.refresh_ms, self.update_force_timer_func )
+			return True # no changes
+		if self.update_force_timer: GLib.source_remove(self.update_force_timer)
+
 		self.c_pos = x, y
 		wx, hx = self.w_sz.width // self.zoom_k, self.w_sz.height // self.zoom_k
 		screenshot = Gdk.pixbuf_get_from_window(
@@ -160,17 +175,36 @@ def main(args=None):
 	import argparse
 	parser = argparse.ArgumentParser(
 		description='Simple screen magnifier tool with color tweaks.')
-	parser.add_argument('-r', '--refresh-interval',
-		type=int, metavar='ms', default=250,
-		help='Refresh interval in milliseconds (lower is faster). Default: %(default)sms')
-	parser.add_argument('-z', '--initial-zoom',
+
+	group = parser.add_argument_group('Basic/misc parameters')
+	group.add_argument('-z', '--initial-zoom',
 		type=int, metavar='level', default=2,
 		help='Initial zoom level/factor. Default: %(default)sx')
-	parser.add_argument('-c', '--color-mode',
+	group.add_argument('-c', '--color-mode',
 		type=int, metavar='n', default=1,
 		help=f'Color tweak mode index: {mode_info}. Default: %(default)s')
+
+	group = parser.add_argument_group('Refresh parameters')
+	group.add_argument('-r', '--refresh-interval',
+		type=int, metavar='ms', default=250,
+		help='Refresh interval in milliseconds (lower is faster).'
+			' Skips update if mouse pointer did not move. Default: %(default)sms')
+	group.add_argument('-f', '--refresh-interval-force',
+		type=int, metavar='ms',
+		help='Force-refresh interval in milliseconds.'
+			' If specified, refresh will always happen at least'
+				' with this interval, regardless of mouse pointer movement.'
+			' Special 0 value will set it to be equal to -r/--refresh-interval.'
+			' Default: none (disabled)')
+
 	opts = parser.parse_args(sys.argv[1:] if args is None else args)
-	MagnusCC(opts.initial_zoom, opts.refresh_interval, opts.color_mode).run()
+
+	if opts.refresh_interval_force == 0:
+		opts.refresh_interval_force = opts.refresh_interval
+
+	MagnusCC(
+		opts.initial_zoom, opts.color_mode,
+		opts.refresh_interval, opts.refresh_interval_force ).run()
 
 if __name__ == '__main__':
 	import signal
