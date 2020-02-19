@@ -1,5 +1,12 @@
 Magnus tool with color tweaks
------------------------------
+=============================
+
+.. contents::
+  :backlinks: none
+
+
+Description
+-----------
 
 Stripped-down fork of `stuartlangridge/magnus`_ tool, tweaked to not only zoom
 on part of the screen under pointer, but also remap output colors to make them
@@ -18,24 +25,46 @@ already very close there to begin with.
 Consists of simplified magnus gtk app (with bunch of stuff removed)
 and tiny C module to process image pixels quickly.
 
-How to prepare/build and use::
+
+Build / Usage
+-------------
+
+It's just a python3 script with C-API .so module in the same dir.
+
+Latter has to be compiled (might need python3-dev pkg or such)::
 
   % gcc -O2 -fpic --shared $(python3-config --includes) \
       magnus_pixbuf_proc.c -o magnus_pixbuf_proc.so
+
+Run::
 
   % ./magnus --help
   ...
 
   % ./magnus
 
-Dependencies (Arch):
+
+Dependencies
+------------
+
+On Arch:
 
 - python
-- python-gobject
+- python-gobject (aka gobject-introspection bindings for python)
 - (optional) libkeybinder3 - for Win-Alt-<plus/minus> zoom keys and such
 - (optional) python-setproctitle - "magnus" in ps output instead of "python ..." line
 
-Global key bindings (only available with optional libkeybinder3):
+Lookup same stuff on other distros, maybe also check original
+`stuartlangridge/magnus`_ for how they're called on Debian/Ubuntu.
+
+
+Key Bindings
+------------
+
+These are global key bindings, and are only available if optional libkeybinder3
+is installed (along with its gobject-introspection/gi bindings).
+
+Functionality for all these keys is also available via dropdowns/buttons in window header bar.
 
 - Pixel-size zoom (-z/--initial-zoom option):
 
@@ -54,5 +83,3 @@ Global key bindings (only available with optional libkeybinder3):
   - Win-Alt-Ctrl-f: same as freeze-toggle above, but with 2s delay (-d/--freeze-key-delay option)
 
   Delay can be useful to freeze snapshot when keyboard will be grabbed by something else.
-
-Functionality for all these keys is also available via dropdowns/buttons in window header bar.
