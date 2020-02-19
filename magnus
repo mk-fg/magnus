@@ -59,7 +59,15 @@ class MagnusCC:
 		win.set_titlebar(head)
 
 		# headerbar - color mode box
-		cm = Gtk.ComboBoxText.new()
+		self.freeze_split_btn_click_skip = False
+		self.freeze_split_btn = freeze = Gtk.ToggleButton.new_with_label('freeze')
+		freeze.connect('clicked', self.freeze_split_btn_click)
+		freeze.set_tooltip_text( 'Freeze-split area under'
+			f' pointer after {self.freeze_delay_ms/1e3:.1f}s delay' )
+		head.pack_end(freeze)
+
+		# headerbar - color mode box
+		cm = Gtk.ComboBoxText()
 		for n, label in enumerate(mpp.color_modes):
 			cm.append(str(n), label)
 			if not n or n == self.color_mode: cm.set_active(n)
@@ -67,7 +75,7 @@ class MagnusCC:
 		head.pack_end(cm)
 
 		# headerbar - zoom chooser
-		zoom = Gtk.ComboBoxText.new()
+		zoom = Gtk.ComboBoxText()
 		for n, x in enumerate(range(2, 6)):
 			zoom.append(str(x), f'{x}×')
 			if not n or x == self.zoom_k: zoom.set_active(n)
@@ -104,12 +112,12 @@ class MagnusCC:
 	def run(self): self.app.run()
 
 
-	def zoom_out(self, keypress, zoom):
+	def zoom_out(self, key, zoom):
 		current_index = zoom.get_active()
 		if current_index == 0: return
 		zoom.set_active(current_index - 1)
 
-	def zoom_in(self, keypress, zoom):
+	def zoom_in(self, key, zoom):
 		current_index = zoom.get_active()
 		size = zoom.get_model().iter_n_children(None)
 		if current_index == size - 1: return
@@ -119,7 +127,7 @@ class MagnusCC:
 		self.zoom_k = int(zoom.get_active_id())
 		self.update(force_refresh=True)
 
-	def color_mode_toggle(self, keypress, cm):
+	def color_mode_toggle(self, key, cm):
 		current_index = cm.get_active()
 		size = cm.get_model().iter_n_children(None)
 		cm.set_active((current_index + 1) % size)
@@ -132,13 +140,30 @@ class MagnusCC:
 		self.w_sz = self.da.get_allocation()
 
 
-	def freeze_split_toggle(self, keypress=None, force=False):
+	def freeze_split_btn_click(self, w=None, ev=None):
+		if self.freeze_split_btn_click_skip:
+			self.freeze_split_btn_click_skip = False
+			return
+		if self.freeze_split_delay:
+			GLib.source_remove(self.freeze_split_delay)
+			self.freeze_split_delay = None
+			return
+		self.freeze_split_delayed()
+
+	def freeze_split_btn_set(self):
+		v, v_old = bool(self.img_freeze), bool(self.freeze_split_btn.get_active())
+		if v_old == v: return
+		self.freeze_split_btn_click_skip = True # click-event emitted on set_active
+		self.freeze_split_btn.set_active(v)
+
+	def freeze_split_toggle(self, key=None, force=False):
 		if not force and self.img_freeze: self.img_freeze = None
 		else: self.img_freeze = True
 		self.update(force_refresh=True)
 		if self.img_freeze: self.img_freeze = self.img
+		self.freeze_split_btn_set()
 
-	def freeze_split_delayed(self, keypress):
+	def freeze_split_delayed(self, key=None):
 		if self.freeze_split_delay: return
 		self.freeze_split_delay = GLib.timeout_add(
 			self.freeze_delay_ms, self.freeze_split_delay_func )
