@@ -229,6 +229,7 @@ class MagnusCC:
 
 def main(args=None):
 	mode_info = ', '.join(f'{n} - {m}' for n,m in enumerate(mpp.color_modes))
+
 	import argparse
 	parser = argparse.ArgumentParser(
 		description='Simple screen magnifier tool with color tweaks.')
@@ -267,6 +268,8 @@ def main(args=None):
 
 	opts = parser.parse_args(sys.argv[1:] if args is None else args)
 
+	if opts.color_mode >= len(mpp.color_modes):
+		parser.error(f'Invalid -c/--color-mode value: {opts.color_mode}')
 	if opts.refresh_interval_force == 0:
 		opts.refresh_interval_force = opts.refresh_interval
 	try: fsm = split_mode[(opts.freeze_split.strip() or 'h')[0].lower()]
