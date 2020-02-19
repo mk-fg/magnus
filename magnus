@@ -186,7 +186,9 @@ class MagnusCC:
 				self.update_force_timer = GLib.timeout_add(
 					self.refresh_ms_force - self.refresh_ms, self.update_force_timer_func )
 			return True # no changes
-		if self.update_force_timer: GLib.source_remove(self.update_force_timer)
+		if self.update_force_timer:
+			GLib.source_remove(self.update_force_timer)
+			self.update_force_timer = None
 
 		self.c_pos = x, y
 		w, h = self.w_sz.width, self.w_sz.height
