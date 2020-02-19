@@ -3,7 +3,8 @@ Magnus tool with color tweaks
 
 Stripped-down fork of `stuartlangridge/magnus`_ tool, tweaked to not only zoom
 on part of the screen under pointer, but also remap output colors to make them
-more distinctive within specific small input range (think GIMP Color Levels/Curves).
+more distinctive within specific small input range (think GIMP Color Levels/Curves),
+and with the ability to freeze-split image for side-by-side comparison.
 
 .. _stuartlangridge/magnus: https://github.com/stuartlangridge/magnus/
 
@@ -47,9 +48,11 @@ Global key bindings (only available with optional libkeybinder3):
 
   For color curve parameters see magnus_pixbuf_proc.c file.
 
-- Freeze-split mode (to compare zoomed images):
+- Freeze-split mode (to compare zoomed images side-by-side):
 
   - Win-Alt-f: freeze-toggle what's currently under cursor in half of the window
   - Win-Alt-Ctrl-f: same as freeze-toggle above, but with 2s delay (-d/--freeze-key-delay option)
+
+  Delay can be useful to capture snapshot when keyboard will be grabbed by something else.
 
 Functionality for all these keys is also available via dropdowns/buttons in window header bar.

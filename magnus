@@ -217,13 +217,14 @@ class MagnusCC:
 		if not self.img:
 			Gtk.render_background( da.get_style_context(),
 				ctx, 0, 0, self.w_sz.width, self.w_sz.height )
-		else:
-			Gdk.cairo_set_source_pixbuf(ctx, self.img, 0, 0)
+			return
+		Gdk.cairo_set_source_pixbuf(ctx, self.img, 0, 0)
+		ctx.paint()
+		if self.img_freeze:
+			if self.freeze_split.h: ctx.translate(0, self.img.get_height())
+			elif self.freeze_split.v: ctx.translate(self.img.get_width(), 0)
+			Gdk.cairo_set_source_pixbuf(ctx, self.img_freeze, 0, 0)
 			ctx.paint()
-			if self.img_freeze:
-				ctx.translate(0, self.img.get_height())
-				Gdk.cairo_set_source_pixbuf(ctx, self.img_freeze, 0, 0)
-				ctx.paint()
 
 
 def main(args=None):
