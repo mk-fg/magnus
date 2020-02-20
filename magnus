@@ -165,6 +165,7 @@ class MagnusCC:
 
 	def freeze_split_delayed(self, key=None):
 		if self.freeze_split_delay: return
+		if self.img_freeze: return self.freeze_split_toggle()
 		self.freeze_split_delay = GLib.timeout_add(
 			self.freeze_delay_ms, self.freeze_split_delay_func )
 
@@ -220,13 +221,15 @@ class MagnusCC:
 			Gtk.render_background( da.get_style_context(),
 				ctx, 0, 0, self.w_sz.width, self.w_sz.height )
 			return
+
 		Gdk.cairo_set_source_pixbuf(ctx, self.img, 0, 0)
 		ctx.paint()
-		if self.img_freeze:
-			if self.freeze_split.h: ctx.translate(0, self.img.get_height())
-			elif self.freeze_split.v: ctx.translate(self.img.get_width(), 0)
-			Gdk.cairo_set_source_pixbuf(ctx, self.img_freeze, 0, 0)
-			ctx.paint()
+		if not self.img_freeze: return
+
+		if self.freeze_split.h: ctx.translate(0, self.img.get_height())
+		elif self.freeze_split.v: ctx.translate(self.img.get_width(), 0)
+		Gdk.cairo_set_source_pixbuf(ctx, self.img_freeze, 0, 0)
+		ctx.paint()
 
 
 def main(args=None):
