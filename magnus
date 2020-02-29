@@ -7,6 +7,9 @@ except ImportError: setproctitle = None
 
 import gi
 gi.require_version('Gtk', '3.0')
+gi.require_version('Gdk', '3.0')
+gi.require_version('GLib', '2.0')
+gi.require_version('GdkPixbuf', '2.0')
 try:
 	gi.require_version('Keybinder', '3.0')
 	from gi.repository import Keybinder # libkeybinder3
