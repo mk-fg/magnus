@@ -73,7 +73,7 @@ Functionality for all these keys is also available via dropdowns/buttons in wind
 
 - Color "zoom"/tweaks:
 
-  - Win-Alt-c: cycle color-tweak curves/modes (-c/--color-mode option)
+  - Win-Alt-d: cycle color-tweak curves/modes (-c/--color-mode option)
 
   For color curve parameters see magnus_pixbuf_proc.c file.
 

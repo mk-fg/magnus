@@ -105,7 +105,7 @@ class MagnusCC:
 				Keybinder.bind('<Alt><Super>plus', self.zoom_in, zoom)
 				Keybinder.bind('<Alt><Super>equal', self.zoom_in, zoom)
 				Keybinder.bind('<Alt><Super>minus', self.zoom_out, zoom)
-				Keybinder.bind('<Alt><Super>c', self.color_mode_toggle, cm)
+				Keybinder.bind('<Alt><Super>d', self.color_mode_toggle, cm)
 				Keybinder.bind('<Alt><Super>f', self.freeze_split_toggle)
 				Keybinder.bind('<Alt><Super><Ctrl>f', self.freeze_split_delayed)
 
